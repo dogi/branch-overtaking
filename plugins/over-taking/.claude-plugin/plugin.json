@@ -1,0 +1,8 @@
+{
+  "name": "over-taking",
+  "description": "Adds an overtaking skill: resolve the repo and branch this session was opened with, find the oldest open PR on that branch, and spawn a session bound to it — plus the stale same-named local lineage check before building on a branch.",
+  "version": "1.0.0",
+  "author": {
+    "name": "dogi"
+  }
+}
