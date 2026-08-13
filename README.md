@@ -12,6 +12,7 @@ The skill separates two problems that arrive together and get conflated:
 | **Git takeover** | commits need to land on someone else's PR | yes — usually first try | anywhere: CLI, OpenHands, Copilot, web/cloud |
 | **Stale local lineage** | branch of the right *name* is an older pre-rebase history | yes — verify, then reset | anywhere |
 | **Session binding** | PR info panel stays empty however many commits land | no — the outcome branch is fixed at session creation | Claude Code web/cloud only |
+| **Event delivery** | CI failures and review comments on the PR never arrive in the session | yes — subscribe to the PR explicitly | Claude Code web/cloud only |
 
 The third one is why this skill exists. A session's panel follows its registered
 **outcome branch**, not what it pushes, and the web UI mints a session-derived
@@ -19,7 +20,14 @@ outcome even when you start it *from* the PR's branch. `create_session`'s
 `outcome_branch` argument is the only lever that re-points it — a construct
 that only exists on the web/cloud product surface.
 
-None of this cares who authored the branch or PR being taken over — a
+Event delivery is the one place authorship matters. A PR the session itself
+opened already wakes it on CI failures and review comments; a PR a teammate
+opened does not, and the panel makes it worse by offering a **"Create PR"**
+button for a branch that already has one — pressing it would mint a duplicate.
+The skill closes that gap with an explicit `subscribe_pr_activity` call during
+takeover.
+
+Otherwise none of this cares who authored the branch or PR being taken over — a
 teammate's, a bot's, a fork's, all handled the same as one of your own.
 
 ## Structure
