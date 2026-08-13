@@ -1,36 +1,45 @@
 ---
 name: overtaking
-description: 'Take over an existing branch and pull request from a Claude Code session. Invoked bare, it resolves the repo and branch this session was opened with, finds the oldest open PR on that branch, and spawns a session whose source revision *and* outcome branch are both that branch — which is what makes the web UI attach its PR info panel. Also covers putting commits on a PR someone else opened without minting a new branch or a second PR, and the stale same-named local lineage that silently makes you build on the wrong history. Use whenever asked to take over, adopt, continue, or push onto an existing PR or branch, when told "commits go onto that existing PR", when a session pushed to the wrong branch, or when someone asks why the PR panel or info sidebar will not attach to their session.'
+description: 'Take over an existing branch and pull request from a Claude Code session. Invoked bare, it resolves the repo and branch this session was opened with, finds the oldest open PR on that branch, and spawns a session whose source revision *and* outcome branch are both that branch — which is what makes the web UI attach its PR info panel. It also subscribes the session to activity on that PR, without which a PR someone else opened never delivers its CI failures or review comments here. Also covers putting commits on a PR someone else opened without minting a new branch or a second PR, and the stale same-named local lineage that silently makes you build on the wrong history. Use whenever asked to take over, adopt, continue, or push onto an existing PR or branch, when told "commits go onto that existing PR", when a session pushed to the wrong branch, when CI failures or review comments on an existing PR never reach the session, when the bottom panel offers "Create PR" for a branch that already has one, or when someone asks why the PR panel or info sidebar will not attach to their session.'
 ---
 
 # Taking over an existing branch and PR
 
-Two different jobs wear the same name, and conflating them wastes an afternoon:
+Three different jobs wear the same name, and conflating them wastes an afternoon:
 
 1. **Session binding** — getting the web UI's PR info panel to attach. This is
    *not* controlled by what you push, and no amount of correct pushing fixes it.
    It needs a session whose **outcome branch** is the PR's branch.
-2. **Git takeover** — getting commits onto an existing branch so an existing PR
+2. **Event subscription** — getting the PR's CI failures and review comments to
+   arrive in *this* conversation. Independent of the panel, and cheap: one call.
+3. **Git takeover** — getting commits onto an existing branch so an existing PR
    shows them. This nearly always works first try.
 
-Neither job cares who opened the branch or the PR, or what its name looks
+Jobs 1 and 3 do not care who opened the branch or the PR, or what its name looks
 like — a teammate's branch, a bot's, a fork's, `alice/redesign-nav`, a bare
 `fix-typo` with no slash at all, is handled exactly like one this session
 itself created. The `claude/…` names that show up below are just realistic
 examples of what a Claude-Code-web-originated session happens to look like;
-nothing in either job branches on that prefix, or on there being a prefix at
+neither job branches on that prefix, or on there being a prefix at
 all, and none of it requires the PR's own branch to have been created by
 Claude Code.
 
-Job 1 is **Claude Code web/cloud only**: it depends on `get_session` and
-`create_session`'s `outcome_branch`, which exist only in that product surface.
-Invoked from the CLI, from OpenHands, or from Copilot there is no session or
-outcome branch to bind — skip straight to job 2, which is plain `git`/PR
-mechanics and works anywhere.
+Job 2 is the one exception, and it runs one way only: a PR **this** session
+opened is wired up already, and a PR **someone else** opened is not — it stays
+silent until you subscribe to it. The authorship does not make the subscription
+impossible, only absent, so the fix is to make the call rather than to work
+around it.
 
-Invoked bare ("take over this PR", "/branch-overtaking:overtaking"), do job 1 *if you're in a
-Claude Code web/cloud session*: the user is looking at a session that cannot
-show them their PR. Say which job you are doing.
+Jobs 1 and 2 are **Claude Code web/cloud only**: they depend on `get_session`,
+`create_session`'s `outcome_branch`, and `subscribe_pr_activity`, which exist
+only in that product surface. Invoked from the CLI, from OpenHands, or from
+Copilot there is no session to bind or wake — skip straight to job 3, which is
+plain `git`/PR mechanics and works anywhere.
+
+Invoked bare ("take over this PR", "/branch-overtaking:overtaking"), do jobs 1
+and 2 *if you're in a Claude Code web/cloud session*: the user is looking at a
+session that cannot show them their PR and will not hear from it either. Say
+which jobs you are doing.
 
 ## Job 1 — bind a session to this branch's PR (Claude Code web/cloud only)
 
@@ -110,11 +119,73 @@ plainly rather than gloss:
   Ask the user what they actually see; do not promise the panel. It is reversible
   either way — `archive_session` cleans it up.
 
-## Job 2 — putting commits on the PR (any environment)
+## Job 2 — wire the PR's events into this session (Claude Code web/cloud only)
 
-Plain `git` and PR-lookup mechanics — no `get_session`/`create_session`, so
-this half works from the CLI, OpenHands, or Copilot just as well as from
-Claude Code web/cloud. It doesn't matter who owns the branch or the PR either.
+Do this on **every** takeover, in the session that is doing the work — not in a
+spawned one. Without it, a PR someone else opened never speaks: CI goes red and
+a reviewer asks for a change, and this conversation hears nothing.
+
+### 1. Find the branch's open PR
+
+The same lookup job 1 does, and it stands alone — run it here even when you
+skipped job 1 entirely:
+
+```
+list_pull_requests(
+  owner: <owner>, repo: <repo>,
+  state: "open",
+  head: "<owner>:<branch>",          # fork PRs use the fork owner here
+  sort: "created", direction: "asc",
+  perPage: 10)
+```
+
+Oldest result wins, as in job 1. No open PR on the head → nothing to subscribe
+to; skip to job 3 and say so.
+
+### 2. Subscribe, unless this session already opened it
+
+```
+subscribe_pr_activity(owner: <owner>, repo: <repo>, pullNumber: <n>)
+```
+
+A PR this session opened is subscribed by its own creation and needs no call. A
+PR anyone **else** opened needs this one explicitly — that is the whole gap this
+job closes. Confirmed working (2026-08-13): a takeover of
+`open-learning-exchange/myplanet` PR #15555, opened by another contributor, sat
+event-silent until this exact call, then delivered CI failures and review
+comments normally.
+
+Attempt it **once** (twice only if a transport error genuinely intervened), then
+stop. A refusal —
+
+```
+Could not subscribe to this PR.
+```
+
+— is not flakiness and repeating it is not diagnosis. The documented cause is
+another watcher, a PR Steward holding a watching label; the unblock is removing
+that label, which is the user's call. Report the refusal and carry on to job 3.
+
+### 3. Tell the user the panel is lying
+
+The bottom panel binds to **session-created PRs only**, so on a taken-over PR it
+keeps offering **"Create PR"** no matter how well the subscription works. Once
+subscribed, that button is cosmetic — events arrive in the conversation instead
+of the panel — and saying so unprompted saves the user from reading it as "not
+connected".
+
+**Never press it, and never call `create_pull_request` for a branch that already
+has an open PR.** GitHub refuses a second open PR for the same head/base, and
+against a different base it succeeds and mints a duplicate — the one outcome
+someone asking for a takeover explicitly did not want. See job 3's *Push, adding
+nothing*.
+
+## Job 3 — putting commits on the PR (any environment)
+
+Plain `git` and PR-lookup mechanics — no `get_session`, `create_session`, or
+`subscribe_pr_activity`, so this job works from the CLI, OpenHands, or Copilot
+just as well as from Claude Code web/cloud. It doesn't matter who owns the branch
+or the PR either.
 
 ### Never trust the local branch ref
 
@@ -167,6 +238,7 @@ git push -u origin <branch>
 
 - **No new branch. No second PR.** Someone asking you to take over a PR wants
   commits on *that* PR; another one is the outcome they explicitly did not want.
+  This holds however loudly the web UI's panel offers "Create PR" — see job 2.
 - Retry network failures with backoff (2s, 4s, 8s, 16s). Do not retry an auth or
   non-fast-forward rejection — diagnose it.
 - **A merged PR cannot be reused.** Restart the branch from the current default
@@ -191,19 +263,11 @@ The outcome is **fixed at session creation**. `set_session_title` and
 `set_session_tags` are the only session mutators available and neither touches
 the binding — which is why job 1 spawns a session rather than repairing this one.
 
-## PR events in the conversation (optional, often refused)
-
-`subscribe_pr_activity` routes comments and CI failures into the session,
-independently of the panel. On a PR you did not open it frequently fails:
-
-```
-Could not subscribe to this PR.
-```
-
-The documented cause is another watcher — a PR Steward holding a watching label.
-Attempt it **once** (twice only if a transport error genuinely intervened), then
-stop: a refusal is not flakiness, and repeating it is not diagnosis. The unblock
-is removing that label, which is the user's call.
+An unbound panel has a second tell worth recognising: on a branch whose PR this
+session did not open, it shows a **"Create PR"** button where the CI and check
+status belongs. That is the panel reporting *its own* binding, not the state of
+the branch — the PR exists, and pressing the button would try to open a second
+one. Job 2 is the fix for the symptom that actually matters.
 
 ## Racing
 
@@ -219,4 +283,7 @@ non-fast-forward rejection arrives with no explanation.
 - [ ] Spawned session's `outcome_branch` verified equal to the branch
 - [ ] No prompt sent to it; no branch, no PR created
 - [ ] Panel rendering confirmed **by the user**, never assumed
+- [ ] `subscribe_pr_activity` called for any open PR this session did not open
+- [ ] User told the panel's "Create PR" is cosmetic once subscribed — and that
+      pressing it would open a duplicate
 - [ ] For commits: divergence settled by dates and file sets before pushing
