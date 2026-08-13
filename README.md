@@ -30,14 +30,14 @@ plugins/over-taking/
 
 ## Hosting
 
-This marketplace is hosted at `dogi/over-taking`. The
+This marketplace is hosted at `dogi/branch-overtaking`. The
 `.claude-plugin/marketplace.json` catalog lives at the repo root so Claude Code
 can discover it when the repo is added as a marketplace.
 
 ## Use it in the terminal (CLI)
 
 ```
-/plugin marketplace add dogi/over-taking
+/plugin marketplace add dogi/branch-overtaking
 /plugin install over-taking@dogi
 /reload-plugins
 ```
@@ -60,7 +60,7 @@ allowlist covers):
     "dogi": {
       "source": {
         "source": "github",
-        "repo": "dogi/over-taking"
+        "repo": "dogi/branch-overtaking"
       }
     }
   },
@@ -78,7 +78,7 @@ OpenHands auto-loads `.agents/skills/<name>/SKILL.md`. Add this repo as a
 submodule in the target repo so the file is physically present:
 
 ```bash
-git submodule add -b main https://github.com/dogi/over-taking.git .agents/skills/over-taking
+git submodule add -b main https://github.com/dogi/branch-overtaking.git .agents/skills/over-taking
 ```
 
 Bump the pin after every merge here, or OpenHands keeps seeing the old revision
