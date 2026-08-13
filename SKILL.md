@@ -13,10 +13,24 @@ Two different jobs wear the same name, and conflating them wastes an afternoon:
 2. **Git takeover** — getting commits onto an existing branch so an existing PR
    shows them. This nearly always works first try.
 
-Invoked bare ("take over this PR", "/over-taking"), do job 1: the user is looking
-at a session that cannot show them their PR. Say which job you are doing.
+Neither job cares who opened the branch or the PR — a teammate's branch, a
+bot's, a fork's, is handled exactly like one this session itself created. The
+branch names below (`claude/…`) are just realistic examples of what a
+Claude-Code-web-originated session happens to look like; nothing in either
+job branches on that prefix, and none of it requires the PR's own branch to
+have been created by Claude Code at all.
 
-## Job 1 — bind a session to this branch's PR
+Job 1 is **Claude Code web/cloud only**: it depends on `get_session` and
+`create_session`'s `outcome_branch`, which exist only in that product surface.
+Invoked from the CLI, from OpenHands, or from Copilot there is no session or
+outcome branch to bind — skip straight to job 2, which is plain `git`/PR
+mechanics and works anywhere.
+
+Invoked bare ("take over this PR", "/over-taking"), do job 1 *if you're in a
+Claude Code web/cloud session*: the user is looking at a session that cannot
+show them their PR. Say which job you are doing.
+
+## Job 1 — bind a session to this branch's PR (Claude Code web/cloud only)
 
 Nothing needs to be supplied. Resolve it all, then act.
 
@@ -42,8 +56,10 @@ Compare the source branch against `outcomes[].branches`:
 - **Outcome already contains the branch** → the panel is already bound. Do
   **not** spawn anything; say so and stop. Spawning a duplicate session against
   a branch that already has one invites two sessions pushing to it.
-- **Outcome is a different, session-derived name** (e.g. `claude/session-ab12cd`
-  when the source was `claude/my-feature`) → this is the failure. Continue.
+- **Outcome is a different, session-derived name** (e.g. the source was
+  `alice/redesign-nav` — someone else's branch, taken over as-is — but the
+  outcome auto-minted to `claude/session-ab12cd`) → this is the failure.
+  Continue.
 
 ### 3. The oldest open PR on that branch
 
@@ -92,14 +108,18 @@ plainly rather than gloss:
   Ask the user what they actually see; do not promise the panel. It is reversible
   either way — `archive_session` cleans it up.
 
-## Job 2 — putting commits on the PR
+## Job 2 — putting commits on the PR (any environment)
+
+Plain `git` and PR-lookup mechanics — no `get_session`/`create_session`, so
+this half works from the CLI, OpenHands, or Copilot just as well as from
+Claude Code web/cloud. It doesn't matter who owns the branch or the PR either.
 
 ### Never trust the local branch ref
 
-A session handed `claude/some-feature` may have a **local ref of that name that
-is not the PR's head** — rebased or force-pushed from another session after this
-container was provisioned. Same name, different history, often a *subset* of the
-work, and it looks current.
+A session handed someone else's branch — say `alice/redesign-nav` — may have a
+**local ref of that name that is not the PR's head** — rebased or force-pushed
+by another session after this container was provisioned. Same name, different
+history, often a *subset* of the work, and it looks current.
 
 ```bash
 git fetch origin <branch>

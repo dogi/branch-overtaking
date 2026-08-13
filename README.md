@@ -7,16 +7,20 @@ Code on the web / cloud** sessions.
 
 The skill separates two problems that arrive together and get conflated:
 
-| Problem | Symptom | Fixable from inside the session? |
-|---|---|---|
-| **Git takeover** | commits need to land on someone else's PR | yes — usually first try |
-| **Stale local lineage** | branch of the right *name* is an older pre-rebase history | yes — verify, then reset |
-| **Session binding** | PR info panel stays empty however many commits land | no — the outcome branch is fixed at session creation |
+| Problem | Symptom | Fixable from inside the session? | Where it applies |
+|---|---|---|---|
+| **Git takeover** | commits need to land on someone else's PR | yes — usually first try | anywhere: CLI, OpenHands, Copilot, web/cloud |
+| **Stale local lineage** | branch of the right *name* is an older pre-rebase history | yes — verify, then reset | anywhere |
+| **Session binding** | PR info panel stays empty however many commits land | no — the outcome branch is fixed at session creation | Claude Code web/cloud only |
 
 The third one is why this skill exists. A session's panel follows its registered
 **outcome branch**, not what it pushes, and the web UI mints a session-derived
 outcome even when you start it *from* the PR's branch. `create_session`'s
-`outcome_branch` argument is the only lever that re-points it.
+`outcome_branch` argument is the only lever that re-points it — a construct
+that only exists on the web/cloud product surface.
+
+None of this cares who authored the branch or PR being taken over — a
+teammate's, a bot's, a fork's, all handled the same as one of your own.
 
 ## Structure
 
@@ -45,6 +49,9 @@ can discover it when the repo is added as a marketplace.
 Then invoke `/over-taking:overtaking` — or just ask to "take over this PR" / "push
 onto that existing PR" / "why won't the PR panel attach", which the description
 auto-triggers.
+
+The CLI has no `get_session`/`create_session`/outcome branch, so only the
+git-takeover half applies here — there is no panel to bind.
 
 ## Use it on Claude Code web / cloud
 
@@ -90,3 +97,6 @@ git submodule update --remote -- .agents/skills/over-taking
 
 The skill itself stays maintained here — bump `version` in `plugin.json` on each
 release so installs pick up updates.
+
+Same caveat as the CLI: OpenHands has no session/outcome-branch concept
+either, so it only gets the git-takeover half of the skill.
