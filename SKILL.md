@@ -13,12 +13,14 @@ Two different jobs wear the same name, and conflating them wastes an afternoon:
 2. **Git takeover** — getting commits onto an existing branch so an existing PR
    shows them. This nearly always works first try.
 
-Neither job cares who opened the branch or the PR — a teammate's branch, a
-bot's, a fork's, is handled exactly like one this session itself created. The
-branch names below (`claude/…`) are just realistic examples of what a
-Claude-Code-web-originated session happens to look like; nothing in either
-job branches on that prefix, and none of it requires the PR's own branch to
-have been created by Claude Code at all.
+Neither job cares who opened the branch or the PR, or what its name looks
+like — a teammate's branch, a bot's, a fork's, `alice/redesign-nav`, a bare
+`fix-typo` with no slash at all, is handled exactly like one this session
+itself created. The `claude/…` names that show up below are just realistic
+examples of what a Claude-Code-web-originated session happens to look like;
+nothing in either job branches on that prefix, or on there being a prefix at
+all, and none of it requires the PR's own branch to have been created by
+Claude Code.
 
 Job 1 is **Claude Code web/cloud only**: it depends on `get_session` and
 `create_session`'s `outcome_branch`, which exist only in that product surface.
@@ -116,9 +118,10 @@ Claude Code web/cloud. It doesn't matter who owns the branch or the PR either.
 
 ### Never trust the local branch ref
 
-A session handed someone else's branch — say `alice/redesign-nav` — may have a
-**local ref of that name that is not the PR's head** — rebased or force-pushed
-by another session after this container was provisioned. Same name, different
+A session handed someone else's branch — say a bare `fix-typo`, no slash, no
+prefix — may have a **local ref of that name that is not the PR's head** —
+rebased or force-pushed by another session after this container was
+provisioned. Same name, different
 history, often a *subset* of the work, and it looks current.
 
 ```bash
