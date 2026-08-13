@@ -6,8 +6,8 @@
   },
   "plugins": [
     {
-      "name": "over-taking",
-      "source": "./plugins/over-taking",
+      "name": "branch-overtaking",
+      "source": "./plugins/branch-overtaking",
       "description": "Take over an existing branch and pull request: bind a session's outcome branch to the branch's oldest open PR so the info panel attaches, and put commits on a PR someone else opened without minting a new branch or a second PR."
     }
   ]

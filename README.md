@@ -1,6 +1,6 @@
 # overtaking — Claude Code plugin marketplace
 
-A personal marketplace hosting `over-taking`: adopt an existing branch and pull
+A personal marketplace hosting `branch-overtaking`: adopt an existing branch and pull
 request instead of opening new ones, and attach a web session's PR info panel to
 it. Maintain the skill here once; opt any project into it — including **Claude
 Code on the web / cloud** sessions.
@@ -26,7 +26,7 @@ teammate's, a bot's, a fork's, all handled the same as one of your own.
 
 ```
 .claude-plugin/marketplace.json          # marketplace catalog
-plugins/over-taking/
+plugins/branch-overtaking/
 ├── .claude-plugin/plugin.json           # plugin manifest
 └── skills/overtaking/
     └── SKILL.md                         # skill definition (symlink to the root copy)
@@ -42,11 +42,11 @@ can discover it when the repo is added as a marketplace.
 
 ```
 /plugin marketplace add dogi/branch-overtaking
-/plugin install over-taking@dogi
+/plugin install branch-overtaking@dogi
 /reload-plugins
 ```
 
-Then invoke `/over-taking:overtaking` — or just ask to "take over this PR" / "push
+Then invoke `/branch-overtaking:overtaking` — or just ask to "take over this PR" / "push
 onto that existing PR" / "why won't the PR panel attach", which the description
 auto-triggers.
 
@@ -72,7 +72,7 @@ allowlist covers):
     }
   },
   "enabledPlugins": {
-    "over-taking@dogi": true
+    "branch-overtaking@dogi": true
   }
 }
 ```
@@ -85,14 +85,14 @@ OpenHands auto-loads `.agents/skills/<name>/SKILL.md`. Add this repo as a
 submodule in the target repo so the file is physically present:
 
 ```bash
-git submodule add -b main https://github.com/dogi/branch-overtaking.git .agents/skills/over-taking
+git submodule add -b main https://github.com/dogi/branch-overtaking.git .agents/skills/branch-overtaking
 ```
 
 Bump the pin after every merge here, or OpenHands keeps seeing the old revision
 while Claude Code's marketplace fetch tracks this repo's `main` tip:
 
 ```bash
-git submodule update --remote -- .agents/skills/over-taking
+git submodule update --remote -- .agents/skills/branch-overtaking
 ```
 
 The skill itself stays maintained here — bump `version` in `plugin.json` on each

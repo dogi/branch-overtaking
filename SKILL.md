@@ -28,7 +28,7 @@ Invoked from the CLI, from OpenHands, or from Copilot there is no session or
 outcome branch to bind — skip straight to job 2, which is plain `git`/PR
 mechanics and works anywhere.
 
-Invoked bare ("take over this PR", "/over-taking"), do job 1 *if you're in a
+Invoked bare ("take over this PR", "/branch-overtaking:overtaking"), do job 1 *if you're in a
 Claude Code web/cloud session*: the user is looking at a session that cannot
 show them their PR. Say which job you are doing.
 
