@@ -56,6 +56,14 @@ session has no way to know it should subscribe.
 
 → Job 1 step 4's seed prompt, and job 2's spawned/not-spawned split.
 
+**The handoff left the old subscription in place.** PR events kept arriving in
+the invoking session after the spawn, and it asked "Want me to unsubscribe this
+session from #15771 so these stop landing here?" — a question the user should
+never have had to answer, since handing the work over is exactly what makes those
+events stop belonging there.
+
+→ `unsubscribe_pr_activity` in job 1 step 5, done rather than offered.
+
 ## 2026-08-13 — `open-learning-exchange/myplanet` PR #15555
 
 A takeover of a PR opened by another contributor sat event-silent until an

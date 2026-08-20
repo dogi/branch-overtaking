@@ -1,6 +1,6 @@
 ---
 name: overtaking
-description: 'Take over an existing branch and pull request from a Claude Code session: find the branch''s oldest open PR, spawn a session whose source revision *and* outcome branch are both that branch — which is what makes the web UI attach its PR info panel — and subscribe that session to the PR''s activity, without which a PR someone else opened never delivers its CI failures or review comments. Also covers putting commits on a PR someone else opened without minting a new branch or a second PR, and the stale same-named local ref that silently builds on the wrong history. Use whenever asked to take over, adopt, continue, or push onto an existing PR or branch, when told "commits go onto that existing PR", when a session pushed to the wrong branch, when CI failures or review comments on an existing PR never reach the session, when the bottom panel offers "Create PR" for a branch that already has one, or when someone asks why the PR panel or info sidebar will not attach. Also the first move on a session whose prompt is empty, a single word, or its own branch slug with no task description: call get_session before any git archaeology, issue or PR listing, or asking the user what to work on — a non-default source revision paired with a different, session-derived outcome branch is the takeover signature. Once the bound session is spawned, the invoking session reports and ends its turn.'
+description: 'Take over an existing branch and pull request from a Claude Code session: find the branch''s oldest open PR, spawn a session whose source revision *and* outcome branch are both that branch — which is what makes the web UI attach its PR info panel — and subscribe that session to the PR''s activity, without which a PR someone else opened never delivers its CI failures or review comments. Also covers putting commits on a PR someone else opened without minting a new branch or a second PR, and the stale same-named local ref that silently builds on the wrong history. Use whenever asked to take over, adopt, continue, or push onto an existing PR or branch, when told "commits go onto that existing PR", when a session pushed to the wrong branch, when CI failures or review comments on an existing PR never reach the session, when the bottom panel offers "Create PR" for a branch that already has one, or when someone asks why the PR panel or info sidebar will not attach. Also the first move on a session whose prompt is empty, a single word, or its own branch slug with no task description: call get_session before any git archaeology, issue or PR listing, or asking the user what to work on — a non-default source revision paired with a different, session-derived outcome branch is the takeover signature. Once the bound session is spawned, the invoking session hands the subscription over — unsubscribing itself from the PR rather than asking whether it should — reports, and ends its turn.'
 ---
 
 # Taking over an existing branch and PR
@@ -154,6 +154,15 @@ fixes, no builds, no test runs, no toolchain downloads. That work belongs to the
 spawned session, where the user will drive it; doing it here spends the tokens
 twice or throws them away.
 
+Hand the events over as part of stopping. If this session is subscribed to the
+PR — from an earlier turn, or an earlier takeover — call
+`unsubscribe_pr_activity(owner, repo, pullNumber)` before the report. **Do it,
+don't offer it:** "want me to unsubscribe?" leaves CI failures and review
+comments landing in a session that will not act on them, waiting on an answer the
+user should never have been asked for. A PR event that still arrives afterwards
+gets the same treatment — unsubscribe, name the session that holds it, and do not
+triage it.
+
 ## Job 2 — wire the PR's events into the session doing the work (web/cloud only)
 
 Do this on **every** takeover. Without it a PR someone else opened never speaks:
@@ -163,7 +172,9 @@ Which session holds it follows from job 1:
 
 - **A session was spawned** → it does the work, so it subscribes itself from its
   seed prompt (step 4) and this session subscribes to nothing — a subscription
-  here would wake a session whose turn is already over. Say which session holds it.
+  here would wake a session whose turn is already over. If this one is already
+  subscribed, `unsubscribe_pr_activity` it (job 1 step 5). Say which session ends
+  up holding it.
 - **Nothing was spawned** — already bound, no open PR, or not web/cloud → this
   session does the work. Subscribe here.
 
@@ -307,7 +318,8 @@ non-fast-forward rejection arrives with no explanation.
 - [ ] After the spawn, the report ends the turn: no CI, review, fix, build, or
       test work here
 - [ ] `subscribe_pr_activity` held by the session doing the work, for any open PR
-      it did not open
+      it did not open — and `unsubscribe_pr_activity` called here if the handoff
+      left this session subscribed, without asking first
 - [ ] User told the panel's "Create PR" is cosmetic once subscribed — and that
       pressing it would open a duplicate
 - [ ] For commits: divergence settled by dates and file sets before pushing
