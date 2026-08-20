@@ -1,4 +1,4 @@
-# Field notes
+# Notes
 
 Runs that produced the rules in `SKILL.md`. Kept out of the skill on purpose:
 the skill states what to do, this file records why. Nothing here is loaded into
