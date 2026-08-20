@@ -1,6 +1,6 @@
 ---
 name: overtaking
-description: 'Take over an existing branch and pull request from a Claude Code session. Invoked bare, it resolves the repo and branch this session was opened with, finds the oldest open PR on that branch, and spawns a session whose source revision *and* outcome branch are both that branch — which is what makes the web UI attach its PR info panel. It also subscribes the session to activity on that PR, without which a PR someone else opened never delivers its CI failures or review comments here. Also covers putting commits on a PR someone else opened without minting a new branch or a second PR, and the stale same-named local lineage that silently makes you build on the wrong history. Use whenever asked to take over, adopt, continue, or push onto an existing PR or branch, when told "commits go onto that existing PR", when a session pushed to the wrong branch, when CI failures or review comments on an existing PR never reach the session, when the bottom panel offers "Create PR" for a branch that already has one, or when someone asks why the PR panel or info sidebar will not attach to their session.'
+description: 'Take over an existing branch and pull request from a Claude Code session. Invoked bare, it resolves the repo and branch this session was opened with, finds the oldest open PR on that branch, and spawns a session whose source revision *and* outcome branch are both that branch — which is what makes the web UI attach its PR info panel. It also subscribes the session to activity on that PR, without which a PR someone else opened never delivers its CI failures or review comments here. Also covers putting commits on a PR someone else opened without minting a new branch or a second PR, and the stale same-named local lineage that silently makes you build on the wrong history. Use whenever asked to take over, adopt, continue, or push onto an existing PR or branch, when told "commits go onto that existing PR", when a session pushed to the wrong branch, when CI failures or review comments on an existing PR never reach the session, when the bottom panel offers "Create PR" for a branch that already has one, or when someone asks why the PR panel or info sidebar will not attach to their session. Also the first move on a session whose prompt is empty, a single word, or its own branch slug and whose task summary says no task description was provided: call get_session before any git archaeology, issue or PR listing, or asking the user what to work on — a non-default source revision paired with a different, session-derived outcome branch is the takeover signature. Once the bound session is spawned, the invoking session reports and ends its turn.'
 ---
 
 # Taking over an existing branch and PR
@@ -40,6 +40,53 @@ Invoked bare ("take over this PR", "/branch-overtaking:overtaking"), do jobs 1
 and 2 *if you're in a Claude Code web/cloud session*: the user is looking at a
 session that cannot show them their PR and will not hear from it either. Say
 which jobs you are doing.
+
+## First move — orient from the session, not from the repo
+
+On a session whose prompt is empty, a single word, or a bare branch slug, call
+`get_session` **first** — before any `git log` or branch inspection, before
+grepping the repo, before reading `CLAUDE.md` or an agent handbook, before
+listing open issues or PRs, and before asking the user what to work on. One call
+decides it:
+
+- `sources[0].git_repository.revision` is a **non-default** branch, **and**
+- `outcomes[0]…branches` is a different, session-derived name
+
+→ this is a takeover — the exact signature described in *Why the panel is not
+attached*. Do not ask what to work on: go straight to job 1 step 3, look up that
+branch's oldest open PR, and proceed.
+
+Compare against the repo's **actual** default branch. It is not always `main` —
+`open-learning-exchange/myplanet` is `master`. Cheap, no guessing:
+
+```bash
+git symbolic-ref --short refs/remotes/origin/HEAD | sed 's|^origin/||'
+git remote show origin | sed -n 's/.*HEAD branch: //p'   # fallback, one network call
+```
+
+The prompt is a signal too: a one-word prompt — or the branch slug it was derived
+from — that names a skill *is* the instruction to run that skill.
+
+**Expect the skill not to be installed.** `~/.claude/plugins/installed_plugins.json`
+reading `{"plugins": {}}`, or `.agents/skills/*` submodules sitting
+uninitialized, means nothing triggered on the word even when the repo's
+`.claude/settings.json` lists the marketplaces. Fetch it and read it — never
+reason from the skill's name:
+
+```bash
+git clone https://github.com/dogi/branch-overtaking /tmp/branch-overtaking
+```
+
+Receipt (2026-08-20): a session whose entire prompt was the word `overtaking` —
+the slug of its own branch `claude/overtaking-cyfn4n`, with the harness summary
+reading "no task description provided" — spent ~15 tool calls on git and branch
+archaeology, a repo-wide grep for "overtaking", `CLAUDE.md`,
+`docs/AGENT_SPELLBOOK.md`, open-issue and open-PR listings, and finally a
+question to the user, before its first skill action. `get_session` would have
+shown source `refs/heads/15634-unable-to-download-html-resources-…` against
+outcome `claude/overtaking-cyfn4n` on turn one — the whole situation, in one
+call. The skill itself was absent from the container and had to be cloned by
+hand.
 
 ## Job 1 — bind a session to this branch's PR (Claude Code web/cloud only)
 
@@ -99,11 +146,22 @@ create_session(
 ```
 
 `outcome_branch` is the field the web UI does not expose, and the whole reason
-this skill exists. Send **no prompt**: the user drives it, and an unprompted
-session sits idle instead of burning tokens. Then stop — do not start working
-inside it.
+this skill exists.
 
-### 5. Verify, then report
+Send **one prompt, and only job 2's**:
+
+```
+prompt: "Call subscribe_pr_activity(owner: <owner>, repo: <repo>, pullNumber: <n>),
+         report the result in one line, then stop and wait for me. Do nothing
+         else — no CI checks, no review-thread triage, no code changes."
+```
+
+That seed is the whole payload. The subscription has to live in the session that
+will do the work, and once the spawn exists that is the spawned session, not this
+one — see job 2. Give it nothing beyond that: a spawned session handed real work
+starts it unprompted, which is the user's call to make, not yours.
+
+### 5. Verify, report, and stop
 
 ```
 outcomes: branches: ["<branch>"]     ← must be the branch, not a derived name
@@ -119,11 +177,33 @@ plainly rather than gloss:
   Ask the user what they actually see; do not promise the panel. It is reversible
   either way — `archive_session` cleans it up.
 
+**The report is this session's last action.** Once the bound session exists, end
+the turn: no pulling the PR's check runs, no reading or verifying review threads,
+no code fixes, no builds, no test runs, no toolchain downloads. That work belongs
+to the spawned session, where the user will drive it — doing it here spends the
+tokens twice or throws them away.
+
+Receipt (2026-08-20): a takeover of `open-learning-exchange/myplanet` PR #15771,
+opened by another contributor, did job 1 and job 2 correctly — then kept going.
+It pulled the PR's check runs, read all 5 unresolved CodeRabbit review threads,
+verified 4 of the findings against the code, and started downloading the Android
+SDK to run the suite locally, until the user interrupted with "stop we are good".
+Every one of those tokens was waste.
+
 ## Job 2 — wire the PR's events into this session (Claude Code web/cloud only)
 
-Do this on **every** takeover, in the session that is doing the work — not in a
-spawned one. Without it, a PR someone else opened never speaks: CI goes red and
-a reviewer asks for a change, and this conversation hears nothing.
+Do this on **every** takeover, in the session that will do the work. Without it,
+a PR someone else opened never speaks: CI goes red and a reviewer asks for a
+change, and that conversation hears nothing.
+
+Which session that is follows from job 1:
+
+- **Job 1 spawned a session** → the spawned one does the work, so it subscribes
+  itself from its seed prompt (job 1 step 4) and this session subscribes to
+  nothing. A subscription here would wake a session whose turn is already over.
+  Say plainly which session holds it.
+- **Nothing was spawned** — already bound, no open PR to bind, or not a web/cloud
+  surface → this session is the one doing the work. Subscribe here.
 
 ### 1. Find the branch's open PR
 
@@ -277,13 +357,19 @@ non-fast-forward rejection arrives with no explanation.
 
 ## Checklist
 
-- [ ] Source repo and branch read from the session, not guessed
+- [ ] `get_session` called on turn one, before git archaeology, issue/PR listing,
+      or asking the user what to work on
+- [ ] Source repo and branch read from the session, not guessed; "non-default"
+      judged against the repo's real default branch, not an assumed `main`
 - [ ] `outcomes[]` checked first — already bound means stop, not spawn
 - [ ] Oldest open PR on the head chosen, others named
 - [ ] Spawned session's `outcome_branch` verified equal to the branch
-- [ ] No prompt sent to it; no branch, no PR created
+- [ ] Its only prompt is the `subscribe_pr_activity` seed; no branch, no PR created
 - [ ] Panel rendering confirmed **by the user**, never assumed
-- [ ] `subscribe_pr_activity` called for any open PR this session did not open
+- [ ] `subscribe_pr_activity` held by the session doing the work — the spawned one
+      if job 1 spawned, otherwise this one — for any open PR this session did not open
+- [ ] After the spawn, the report ends the turn: no CI, review, fix, build, or
+      test work here
 - [ ] User told the panel's "Create PR" is cosmetic once subscribed — and that
       pressing it would open a duplicate
 - [ ] For commits: divergence settled by dates and file sets before pushing
