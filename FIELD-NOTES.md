@@ -62,7 +62,9 @@ session from #15771 so these stop landing here?" — a question the user should
 never have had to answer, since handing the work over is exactly what makes those
 events stop belonging there.
 
-→ `unsubscribe_pr_activity` in job 1 step 5, done rather than offered.
+→ job 2's "make no subscribe call until job 1 answers", so the spawn path never
+subscribes here to begin with; `unsubscribe_pr_activity` in job 1 step 5 as the
+cleanup for a subscription that predates the turn, done rather than offered.
 
 ## 2026-08-13 — `open-learning-exchange/myplanet` PR #15555
 

@@ -154,27 +154,32 @@ fixes, no builds, no test runs, no toolchain downloads. That work belongs to the
 spawned session, where the user will drive it; doing it here spends the tokens
 twice or throws them away.
 
-Hand the events over as part of stopping. If this session is subscribed to the
-PR — from an earlier turn, or an earlier takeover — call
-`unsubscribe_pr_activity(owner, repo, pullNumber)` before the report. **Do it,
-don't offer it:** "want me to unsubscribe?" leaves CI failures and review
-comments landing in a session that will not act on them, waiting on an answer the
-user should never have been asked for. A PR event that still arrives afterwards
-gets the same treatment — unsubscribe, name the session that holds it, and do not
-triage it.
+Hand the events over as part of stopping. On a clean takeover there is nothing to
+hand over — you never subscribed here (job 2). When a subscription *does* predate
+the report — an earlier turn, an earlier takeover, one the user or harness already
+had in place — call `unsubscribe_pr_activity(owner, repo, pullNumber)` before you
+report. **Do it, don't offer it:** "want me to unsubscribe?" leaves CI failures
+and review comments landing in a session that will not act on them, waiting on an
+answer the user should never have been asked for. A PR event that still arrives
+afterwards gets the same treatment — unsubscribe, name the session that holds it,
+and do not triage it.
 
 ## Job 2 — wire the PR's events into the session doing the work (web/cloud only)
 
 Do this on **every** takeover. Without it a PR someone else opened never speaks:
 CI goes red, a reviewer asks for a change, and the conversation hears nothing.
 
-Which session holds it follows from job 1:
+Which session holds it follows from job 1 — so **run job 1 first and make no
+subscribe call until it answers.** Subscribing here and undoing it a moment later
+is the same waste spread over two calls.
 
 - **A session was spawned** → it does the work, so it subscribes itself from its
-  seed prompt (step 4) and this session subscribes to nothing — a subscription
-  here would wake a session whose turn is already over. If this one is already
-  subscribed, `unsubscribe_pr_activity` it (job 1 step 5). Say which session ends
-  up holding it.
+  seed prompt (step 4) and this session **never subscribes at all** — a
+  subscription here would wake a session whose turn is already over. If one was
+  already in place before this turn, `unsubscribe_pr_activity` it (job 1 step 5).
+  Say which session ends up holding it. If the spawned session reports the
+  subscribe refused, that is the user's to unblock; do not subscribe here as a
+  consolation, because this session is stopping either way.
 - **Nothing was spawned** — already bound, no open PR, or not web/cloud → this
   session does the work. Subscribe here.
 
@@ -318,8 +323,9 @@ non-fast-forward rejection arrives with no explanation.
 - [ ] After the spawn, the report ends the turn: no CI, review, fix, build, or
       test work here
 - [ ] `subscribe_pr_activity` held by the session doing the work, for any open PR
-      it did not open — and `unsubscribe_pr_activity` called here if the handoff
-      left this session subscribed, without asking first
+      it did not open — and never called here on the spawn path
+- [ ] Any subscription predating this turn cleared with `unsubscribe_pr_activity`
+      before the report, without asking first
 - [ ] User told the panel's "Create PR" is cosmetic once subscribed — and that
       pressing it would open a duplicate
 - [ ] For commits: divergence settled by dates and file sets before pushing
