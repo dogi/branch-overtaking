@@ -16,20 +16,12 @@ Three jobs wear the same name, and conflating them wastes an afternoon:
 3. **Git takeover** — getting commits onto an existing branch so an existing PR
    shows them. Nearly always works first try.
 
-Jobs 1 and 2 are **Claude Code web/cloud only**: they need `get_session`,
-`create_session`'s `outcome_branch`, and `subscribe_pr_activity`. From the CLI,
-OpenHands, or Copilot there is no session to bind or wake — go straight to job 3,
-which is plain `git`/PR mechanics and works anywhere.
-
-None of this cares who owns the branch or the PR, or what the name looks like — a
-teammate's, a bot's, a fork's, `alice/redesign-nav`, a bare `fix-typo` with no
-slash at all, is handled exactly like one this session created. The one exception
-is job 2: a PR **this** session opened is wired up already; a PR **anyone else**
-opened stays silent until you subscribe to it.
-
 Invoked bare ("take over this PR", "/branch-overtaking:overtaking"), do all three
-— jobs 1 and 2 only if you're in a web/cloud session — and say which you are
-doing.
+and say which you are doing — jobs 1 and 2 need `get_session`, `outcome_branch`
+and `subscribe_pr_activity`, so outside Claude Code web/cloud skip to job 3. None of it cares who owns the branch or the PR, or
+what the name looks like — a teammate's, a bot's, a fork's, a bare `fix-typo`
+with no slash at all. The one exception is job 2: a PR **this** session opened is
+wired up already; a PR **anyone else** opened stays silent until you subscribe.
 
 ## First move — orient from the session, not the repo
 
@@ -117,8 +109,7 @@ create_session(
   title:           PR #<n> — <short description>)
 ```
 
-`outcome_branch` is the field the web UI does not expose, and the whole reason
-this skill exists.
+`outcome_branch` is the field the web UI does not expose.
 
 Send **one prompt, and only job 2's**:
 
@@ -151,8 +142,7 @@ stating plainly:
 **The report is this session's last action.** Once the bound session exists, end
 the turn: no pulling check runs, no reading or verifying review threads, no code
 fixes, no builds, no test runs, no toolchain downloads. That work belongs to the
-spawned session, where the user will drive it; doing it here spends the tokens
-twice or throws them away.
+spawned session, where the user will drive it.
 
 Hand the events over as part of stopping. On a clean takeover there is nothing to
 hand over — you never subscribed here (job 2). When a subscription *does* predate
@@ -170,8 +160,7 @@ Do this on **every** takeover. Without it a PR someone else opened never speaks:
 CI goes red, a reviewer asks for a change, and the conversation hears nothing.
 
 Which session holds it follows from job 1 — so **run job 1 first and make no
-subscribe call until it answers.** Subscribing here and undoing it a moment later
-is the same waste spread over two calls.
+subscribe call until it answers.**
 
 - **A session was spawned** → it does the work, so it subscribes itself from its
   seed prompt (step 4) and this session **never subscribes at all** — a
@@ -196,7 +185,7 @@ subscribe_pr_activity(owner: <owner>, repo: <repo>, pullNumber: <n>)
 ```
 
 A PR this session opened is subscribed by its own creation. A PR anyone **else**
-opened needs this call explicitly — that is the whole gap this job closes.
+opened needs this call explicitly.
 
 Attempt it **once** (twice only if a transport error genuinely intervened). A
 refusal —
@@ -212,9 +201,9 @@ the user's call. Report the refusal and carry on to job 3.
 ### 3. Tell the user the panel is lying
 
 The bottom panel binds to **session-created PRs only**, so on a taken-over PR it
-keeps offering **"Create PR"** however well the subscription works. Once
-subscribed that button is cosmetic — events arrive in the conversation instead —
-and saying so unprompted stops the user reading it as "not connected".
+keeps offering **"Create PR"** however well the subscription works — it is
+reporting *its own* binding, not the state of the branch. Once subscribed that
+button is cosmetic; say so unprompted, or the user reads it as "not connected".
 
 **Never press it, and never call `create_pull_request` for a branch that already
 has an open PR.** GitHub refuses a second open PR for the same head/base; against
@@ -287,21 +276,16 @@ git push -u origin <branch>
 A web session records two different things, and the panel follows the second:
 
 ```
-sources:  refs/heads/alice/redesign-nav     ← what you checked out
+sources:  refs/heads/alice/redesign-nav        ← what you checked out
 outcomes: branches: ["claude/session-sof3wd"]  ← what the panel binds to
 ```
 
 Starting a session *from* the PR's branch does not help: the outcome still
 auto-mints a session-derived name, every commit lands on the PR's branch, and the
-panel stays bound to a branch that never receives one.
-
-The outcome is **fixed at session creation**. `set_session_title` and
-`set_session_tags` are the only session mutators available and neither touches the
-binding — which is why job 1 spawns a session rather than repairing this one.
-
-An unbound panel has a second tell: on a branch whose PR this session did not
-open, it shows a **"Create PR"** button where the CI and check status belongs.
-That is the panel reporting *its own* binding, not the state of the branch.
+panel stays bound to a branch that never receives one. That outcome is **fixed at
+session creation** — `set_session_title` and `set_session_tags` are the only
+session mutators available, and neither touches the binding. Hence job 1 spawning
+a session rather than repairing this one.
 
 ## Racing
 
