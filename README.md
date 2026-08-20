@@ -34,6 +34,8 @@ teammate's, a bot's, a fork's, all handled the same as one of your own.
 
 ```
 .claude-plugin/marketplace.json          # marketplace catalog
+SKILL.md                                 # the skill itself
+FIELD-NOTES.md                           # runs behind the rules — not loaded by the skill
 plugins/branch-overtaking/
 ├── .claude-plugin/plugin.json           # plugin manifest
 └── skills/overtaking/
